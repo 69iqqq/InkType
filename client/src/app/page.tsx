@@ -11,9 +11,9 @@ function Navbar() {
       <div className="hidden md:flex items-center gap-8 text-sm font-medium">
         <a href="#about" className="text-secondary hover:text-foreground transition-colors">About</a>
         <Link href="/pricing" className="text-secondary hover:text-foreground transition-colors">Pricing</Link>
-        <Link href="/app" className="text-secondary hover:text-foreground transition-colors">Sign In</Link>
+        <Link href="/signin" className="text-secondary hover:text-foreground transition-colors">Sign In</Link>
         <Link 
-          href="/app" 
+          href="/signin" 
           className="bg-foreground text-background px-4 py-2 hover:opacity-90 transition-opacity"
         >
           Get Started -&gt;
@@ -33,7 +33,7 @@ function Hero() {
         Turn your messy handwritten notes into beautiful, clean, professionally typeset PDFs instantly.
       </p>
       <Link 
-        href="/app" 
+        href="/signin" 
         className="bg-foreground text-background px-8 py-4 text-lg font-bold hover:opacity-90 transition-opacity flex items-center gap-4"
       >
         Try InkType for free

@@ -4,8 +4,9 @@ import React, { useState, useRef } from "react";
 
 export function DownloadButton() {
   return (
-    <button className="px-4 py-1.5 text-sm font-medium bg-foreground text-background hover:opacity-90 rounded transition-opacity">
-      Download PDF
+    <button className="flex items-center px-4 py-2 text-sm font-bold bg-foreground text-background hover:bg-transparent hover:text-foreground border-2 border-foreground transition-colors">
+      <span>Download PDF</span>
+      <span className="ml-4 text-xs font-normal opacity-50">[ ⌘ D ]</span>
     </button>
   );
 }
@@ -226,15 +227,15 @@ export function UploadArea({ onUpload }: { onUpload: () => void }) {
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={`w-72 h-48 border flex flex-col items-center justify-center gap-4 cursor-pointer transition-colors ${
+        className={`w-full max-w-lg p-16 border-2 flex flex-col items-center justify-center gap-4 cursor-pointer transition-colors ${
           isDragging 
             ? 'border-foreground bg-sidebar border-solid' 
             : 'border-border border-dashed hover:border-foreground hover:bg-sidebar'
         }`}
       >
         <div className="text-center">
-          <p className="font-bold mb-2">Drop PDF here</p>
-          <p className="text-sm text-secondary underline">or browse files</p>
+          <p className="font-bold text-xl mb-4">Drop PDF here</p>
+          <p className="text-sm text-secondary uppercase tracking-widest"><span className="underline">or browse files</span> &nbsp; [ ⌘ U ]</p>
         </div>
         <input 
           type="file" 
