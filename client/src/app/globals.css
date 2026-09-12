@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #FAFAFA;
+  --color-sidebar: #F5F5F5;
+  --color-foreground: #111111;
+  --color-secondary: #6B6B6B;
+  --color-border: #E5E5E5;
+  --color-hover: #EEEEEE;
+}
+
+:root {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+}
+
+@layer utilities {
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
