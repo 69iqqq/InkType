@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Image from "next/image";
 
 export function NewDocumentButton({ onClick }: { onClick?: () => void }) {
   return (
@@ -74,8 +75,8 @@ export function UserMenu() {
 export function Sidebar({ onNewDocument }: { onNewDocument?: () => void }) {
   return (
     <div className="hidden md:flex flex-col w-[260px] h-full bg-sidebar border-r border-border p-3 flex-shrink-0">
-      <div className="px-3 py-3 mb-4">
-        <span className="font-bold tracking-tight text-foreground">INKTYPE</span>
+      <div className="px-3 py-3 mb-4 flex items-center">
+        <Image src="/InkTypeLogo-v2.png" alt="InkType" width={120} height={40} className="h-8 w-auto object-contain" priority />
       </div>
       <NewDocumentButton onClick={onNewDocument} />
       

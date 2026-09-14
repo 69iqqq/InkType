@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 
 export default function SignInPage() {
@@ -23,8 +24,8 @@ export default function SignInPage() {
   return (
     <main className="min-h-full w-full flex flex-col bg-background text-foreground">
       <nav className="p-6 md:p-12">
-        <Link href="/" className="font-bold tracking-tight text-xl">
-          INKTYPE
+        <Link href="/">
+          <Image src="/InkTypeLogo-v2.png" alt="InkType" width={120} height={40} className="h-8 w-auto object-contain" priority />
         </Link>
       </nav>
 

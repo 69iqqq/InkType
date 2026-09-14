@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
 
 export default function PricingPage() {
@@ -15,8 +16,8 @@ export default function PricingPage() {
   return (
     <main className="min-h-full w-full flex flex-col bg-background text-foreground overflow-y-auto overflow-x-hidden">
       <nav className="flex items-center justify-between px-6 py-6 md:px-12 border-b-2 border-border sticky top-0 z-50 bg-background/90 backdrop-blur">
-        <Link href="/" className="font-bold tracking-tight text-xl">
-          INKTYPE
+        <Link href="/">
+          <Image src="/InkTypeLogo-v2.png" alt="InkType" width={120} height={40} className="h-8 w-auto object-contain" priority />
         </Link>
         <Link href="/" className="text-sm font-bold uppercase tracking-widest text-secondary hover:text-foreground transition-colors">
           &lt;- Back

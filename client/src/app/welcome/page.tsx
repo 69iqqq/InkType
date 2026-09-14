@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 
 export default function WelcomePage() {
@@ -19,7 +20,7 @@ export default function WelcomePage() {
   return (
     <main className="min-h-full w-full flex flex-col bg-background text-foreground">
       <nav className="p-6 md:p-12">
-        <span className="font-bold tracking-tight text-xl">INKTYPE</span>
+        <Image src="/InkTypeLogo-v2.png" alt="InkType" width={120} height={40} className="h-8 w-auto object-contain" priority />
       </nav>
 
       <div className="flex-1 flex items-center justify-center p-6">
