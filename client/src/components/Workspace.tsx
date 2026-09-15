@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
+import { uploadDocument } from "../lib/api";
 
 export function DownloadButton() {
   return (
@@ -52,12 +53,10 @@ export function ViewerToolbar({ pages = 12, currentPage = 1, zoom = 100 }) {
 
 export function DocumentViewer({ 
   title, 
-  content, 
-  isGenerated 
+  content
 }: { 
   title: string; 
-  content: React.ReactNode; 
-  isGenerated?: boolean;
+  content: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col h-full bg-sidebar border-r border-border last:border-r-0 w-full relative">
@@ -104,7 +103,7 @@ export function SplitDocumentViewer() {
   return (
     <div className="flex flex-1 overflow-hidden">
       <DocumentViewer title="Original PDF" content={originalContent} />
-      <DocumentViewer title="Typeset PDF" content={generatedContent} isGenerated />
+      <DocumentViewer title="Typeset PDF" content={generatedContent} />
     </div>
   );
 }
@@ -167,7 +166,7 @@ export function ProcessingView({ onComplete }: { onComplete: () => void }) {
   );
 }
 
-export function UploadArea({ onUpload }: { onUpload: () => void }) {
+export function UploadArea({ onUpload }: { onUpload: (file: File) => void }) {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -208,10 +207,10 @@ export function UploadArea({ onUpload }: { onUpload: () => void }) {
       <div className="flex flex-col items-center gap-6 mt-12 animate-in fade-in duration-300">
         <div className="text-center p-6 border border-border bg-sidebar rounded">
           <p className="text-foreground font-bold">{selectedFile.name}</p>
-          <p className="text-secondary text-sm mt-2">24 pages · 8.2 MB</p>
+          <p className="text-secondary text-sm mt-2">Ready to process</p>
         </div>
         <button 
-          onClick={onUpload}
+          onClick={() => onUpload(selectedFile)}
           className="px-6 py-3 bg-foreground text-background font-medium rounded hover:opacity-90 transition-opacity"
         >
           Process Document
@@ -250,13 +249,13 @@ export function UploadArea({ onUpload }: { onUpload: () => void }) {
   );
 }
 
-export function EmptyState({ onUpload }: { onUpload: () => void }) {
+export function EmptyState({ onUpload }: { onUpload: (file: File) => void }) {
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-8 bg-background">
       <div className="max-w-xl w-full flex flex-col items-center text-center">
         <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-6">Turn handwriting<br />into something clean.</h2>
         <p className="text-secondary text-lg mb-10 max-w-sm">
-          Upload a handwritten PDF and we'll turn it into beautiful, typeset notes.
+          Upload a handwritten PDF and we&apos;ll turn it into beautiful, typeset notes.
         </p>
         
         <UploadArea onUpload={onUpload} />
@@ -270,8 +269,15 @@ export type AppState = 'empty' | 'processing' | 'result';
 export function Workspace() {
   const [appState, setAppState] = useState<AppState>('empty');
 
-  const handleUpload = () => {
+  const handleUpload = async (file: File) => {
     setAppState('processing');
+    try {
+      const doc = await uploadDocument(file);
+      console.log("Uploaded file to R2, DB record created:", doc);
+    } catch (e) {
+      console.error(e);
+      setAppState('empty');
+    }
   };
 
   const handleProcessComplete = () => {

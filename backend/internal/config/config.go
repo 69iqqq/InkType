@@ -8,9 +8,13 @@ import (
 )
 
 type Config struct {
-	DatabaseURL     string
-	ClerkSecretKey  string
-	Port            string
+	DatabaseURL       string
+	ClerkSecretKey    string
+	Port              string
+	R2AccountID       string
+	R2AccessKeyID     string
+	R2SecretAccessKey string
+	R2BucketName      string
 }
 
 func Load() *Config {
@@ -31,9 +35,18 @@ func Load() *Config {
 		port = "8080"
 	}
 
+	r2AccountID := os.Getenv("R2_ACCOUNT_ID")
+	r2AccessKeyID := os.Getenv("R2_ACCESS_KEY_ID")
+	r2SecretAccessKey := os.Getenv("R2_SECRET_ACCESS_KEY")
+	r2BucketName := os.Getenv("R2_BUCKET_NAME")
+
 	return &Config{
-		DatabaseURL:    dbURL,
-		ClerkSecretKey: clerkKey,
-		Port:           port,
+		DatabaseURL:       dbURL,
+		ClerkSecretKey:    clerkKey,
+		Port:              port,
+		R2AccountID:       r2AccountID,
+		R2AccessKeyID:     r2AccessKeyID,
+		R2SecretAccessKey: r2SecretAccessKey,
+		R2BucketName:      r2BucketName,
 	}
 }

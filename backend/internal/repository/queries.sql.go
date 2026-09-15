@@ -51,6 +51,21 @@ func (q *Queries) CreateDocument(ctx context.Context, arg CreateDocumentParams) 
 	return i, err
 }
 
+const deleteDocument = `-- name: DeleteDocument :exec
+DELETE FROM documents
+WHERE id = $1 AND clerk_user_id = $2
+`
+
+type DeleteDocumentParams struct {
+	ID          pgtype.UUID `json:"id"`
+	ClerkUserID string      `json:"clerk_user_id"`
+}
+
+func (q *Queries) DeleteDocument(ctx context.Context, arg DeleteDocumentParams) error {
+	_, err := q.db.Exec(ctx, deleteDocument, arg.ID, arg.ClerkUserID)
+	return err
+}
+
 const enqueueJob = `-- name: EnqueueJob :one
 INSERT INTO jobs (
     document_id, type, status
@@ -112,4 +127,41 @@ func (q *Queries) GetDocument(ctx context.Context, arg GetDocumentParams) (Docum
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const listDocuments = `-- name: ListDocuments :many
+SELECT id, clerk_user_id, original_filename, input_object_key, output_object_key, page_count, status, created_at, updated_at 
+FROM documents 
+WHERE clerk_user_id = $1
+ORDER BY created_at DESC
+`
+
+func (q *Queries) ListDocuments(ctx context.Context, clerkUserID string) ([]Document, error) {
+	rows, err := q.db.Query(ctx, listDocuments, clerkUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Document
+	for rows.Next() {
+		var i Document
+		if err := rows.Scan(
+			&i.ID,
+			&i.ClerkUserID,
+			&i.OriginalFilename,
+			&i.InputObjectKey,
+			&i.OutputObjectKey,
+			&i.PageCount,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

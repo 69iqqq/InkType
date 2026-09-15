@@ -10,8 +10,10 @@ import (
 
 type Querier interface {
 	CreateDocument(ctx context.Context, arg CreateDocumentParams) (CreateDocumentRow, error)
+	DeleteDocument(ctx context.Context, arg DeleteDocumentParams) error
 	EnqueueJob(ctx context.Context, arg EnqueueJobParams) (EnqueueJobRow, error)
 	GetDocument(ctx context.Context, arg GetDocumentParams) (Document, error)
+	ListDocuments(ctx context.Context, clerkUserID string) ([]Document, error)
 }
 
 var _ Querier = (*Queries)(nil)

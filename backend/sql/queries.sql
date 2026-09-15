@@ -11,6 +11,16 @@ SELECT id, clerk_user_id, original_filename, input_object_key, output_object_key
 FROM documents 
 WHERE id = $1 AND clerk_user_id = $2;
 
+-- name: ListDocuments :many
+SELECT id, clerk_user_id, original_filename, input_object_key, output_object_key, page_count, status, created_at, updated_at 
+FROM documents 
+WHERE clerk_user_id = $1
+ORDER BY created_at DESC;
+
+-- name: DeleteDocument :exec
+DELETE FROM documents
+WHERE id = $1 AND clerk_user_id = $2;
+
 -- name: EnqueueJob :one
 INSERT INTO jobs (
     document_id, type, status

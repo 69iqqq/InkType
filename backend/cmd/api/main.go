@@ -14,22 +14,19 @@ import (
 	"inktype-backend/internal/config"
 	"inktype-backend/internal/database"
 	"inktype-backend/internal/repository"
+	"inktype-backend/internal/storage"
 
 	"github.com/clerk/clerk-sdk-go/v2"
 )
 
 func main() {
-	// Initialize structured logger
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
-	// 1. Load Configuration
 	cfg := config.Load()
 
-	// 2. Initialize Clerk SDK
 	clerk.SetKey(cfg.ClerkSecretKey)
 
-	// 3. Connect to Database
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -41,16 +38,18 @@ func main() {
 		logger.Info("successfully connected to Neon Postgres")
 	}
 
-	// 4. Initialize Repository Layer
 	var repo repository.Querier
 	if db != nil {
 		repo = repository.New(db.Pool)
 	}
 
-	// 5. Setup API Server Instance
-	server := api.NewServer(logger, repo)
+	store, err := storage.NewClient(ctx, cfg.R2AccountID, cfg.R2AccessKeyID, cfg.R2SecretAccessKey, cfg.R2BucketName)
+	if err != nil {
+		logger.Warn("failed to initialize R2 storage client", "error", err)
+	}
 
-	// 6. Graceful Shutdown Setup
+	server := api.NewServer(logger, repo, store)
+
 	serverAddr := ":" + cfg.Port
 	srv := &http.Server{
 		Addr:    serverAddr,
@@ -65,7 +64,6 @@ func main() {
 		}
 	}()
 
-	// Wait for interrupt signal to gracefully shutdown the server
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
