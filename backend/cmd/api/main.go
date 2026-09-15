@@ -3,79 +3,79 @@ package main
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
-	"syscall"
 	"time"
 
-	"inktype-backend/internal/api"
 	"inktype-backend/internal/config"
 	"inktype-backend/internal/database"
+	"inktype-backend/internal/handler"
+	"inktype-backend/internal/logger"
 	"inktype-backend/internal/repository"
-	"inktype-backend/internal/storage"
-
-	"github.com/clerk/clerk-sdk-go/v2"
+	"inktype-backend/internal/router"
+	"inktype-backend/internal/server"
+	"inktype-backend/internal/service"
 )
 
+const DefaultContextTimeout = 30
+
 func main() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	slog.SetDefault(logger)
-
-	cfg := config.Load()
-
-	clerk.SetKey(cfg.ClerkSecretKey)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	db, err := database.Connect(ctx, cfg.DatabaseURL)
+	cfg, err := config.LoadConfig()
 	if err != nil {
-		logger.Warn("failed to connect to database (is DATABASE_URL set?)", "error", err)
-	} else {
-		defer db.Pool.Close()
-		logger.Info("successfully connected to Neon Postgres")
+		panic("failed to load config: " + err.Error())
 	}
 
-	var repo repository.Querier
-	if db != nil {
-		repo = repository.New(db.Pool)
+	// Initialize New Relic logger service
+	loggerService := logger.NewLoggerService(cfg.Observability)
+	defer loggerService.Shutdown()
+
+	log := logger.NewLoggerWithService(cfg.Observability, loggerService)
+
+	if cfg.Primary.Env != "local" {
+		if err := database.Migrate(context.Background(), &log, cfg); err != nil {
+			log.Fatal().Err(err).Msg("failed to migrate database")
+		}
 	}
 
-	store, err := storage.NewClient(ctx, cfg.R2AccountID, cfg.R2AccessKeyID, cfg.R2SecretAccessKey, cfg.R2BucketName)
+	// Initialize server
+	srv, err := server.New(cfg, &log, loggerService)
 	if err != nil {
-		logger.Warn("failed to initialize R2 storage client", "error", err)
+		log.Fatal().Err(err).Msg("failed to initialize server")
 	}
 
-	server := api.NewServer(logger, repo, store)
-
-	serverAddr := ":" + cfg.Port
-	srv := &http.Server{
-		Addr:    serverAddr,
-		Handler: server,
+	// Initialize repositories, services, and handlers
+	repos := repository.NewRepositories(srv)
+	services, serviceErr := service.NewServices(srv, repos)
+	if serviceErr != nil {
+		log.Fatal().Err(serviceErr).Msg("could not create services")
 	}
+	handlers := handler.NewHandlers(srv, services)
 
+	// Initialize router
+	r := router.NewRouter(srv, handlers, services)
+
+	// Setup HTTP server
+	srv.SetupHTTPServer(r)
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+
+	// Start server
 	go func() {
-		logger.Info("starting InkType API server", "addr", serverAddr)
-		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			logger.Error("server failed to start", "error", err)
-			os.Exit(1)
+		if err = srv.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatal().Err(err).Msg("failed to start server")
 		}
 	}()
 
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
+	// Wait for interrupt signal to gracefully shutdown the server
+	<-ctx.Done()
+	ctx, cancel := context.WithTimeout(context.Background(), DefaultContextTimeout*time.Second)
 
-	logger.Info("shutting down server...")
-
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer shutdownCancel()
-
-	if err := srv.Shutdown(shutdownCtx); err != nil {
-		logger.Error("server forced to shutdown", "error", err)
+	if err = srv.Shutdown(ctx); err != nil {
+		log.Fatal().Err(err).Msg("server forced to shutdown")
 	}
+	stop()
+	cancel()
 
-	logger.Info("server exiting gracefully")
+	log.Info().Msg("server exited properly")
 }

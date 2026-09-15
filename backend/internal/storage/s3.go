@@ -12,9 +12,9 @@ import (
 )
 
 type Client struct {
-	s3Client    *s3.Client
-	presign     *s3.PresignClient
-	bucketName  string
+	s3Client   *s3.Client
+	presign    *s3.PresignClient
+	bucketName string
 }
 
 func NewClient(ctx context.Context, accountID, accessKeyID, secretAccessKey, bucketName string) (*Client, error) {
