@@ -64,6 +64,7 @@ func NewRouter(s *server.Server, h *handler.Handlers, services *service.Services
 		v1.GET("/documents", h.Document.List)
 		v1.GET("/documents/:id", h.Document.Get)
 		v1.DELETE("/documents/:id", h.Document.Delete)
+		v1.POST("/documents/:id/convert", h.Document.Convert)
 	}
 
 	return router

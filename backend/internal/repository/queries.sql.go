@@ -11,6 +11,55 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const claimJob = `-- name: ClaimJob :one
+UPDATE jobs
+SET status = 'processing',
+    attempts = attempts + 1,
+    started_at = CURRENT_TIMESTAMP,
+    available_at = CURRENT_TIMESTAMP + ($1::integer * interval '1 second')
+WHERE id = (
+    SELECT id
+    FROM jobs
+    WHERE status = 'pending' OR (status = 'processing' AND available_at < CURRENT_TIMESTAMP)
+    ORDER BY created_at ASC
+    FOR UPDATE SKIP LOCKED
+    LIMIT 1
+)
+RETURNING id, document_id, type, status, attempts, available_at, started_at, completed_at, error, created_at, updated_at
+`
+
+func (q *Queries) ClaimJob(ctx context.Context, dollar_1 int32) (Job, error) {
+	row := q.db.QueryRow(ctx, claimJob, dollar_1)
+	var i Job
+	err := row.Scan(
+		&i.ID,
+		&i.DocumentID,
+		&i.Type,
+		&i.Status,
+		&i.Attempts,
+		&i.AvailableAt,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.Error,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const completeJob = `-- name: CompleteJob :exec
+UPDATE jobs
+SET status = 'completed',
+    completed_at = CURRENT_TIMESTAMP,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1
+`
+
+func (q *Queries) CompleteJob(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, completeJob, id)
+	return err
+}
+
 const createDocument = `-- name: CreateDocument :one
 INSERT INTO documents (
     clerk_user_id, original_filename, input_object_key, status
@@ -45,6 +94,49 @@ func (q *Queries) CreateDocument(ctx context.Context, arg CreateDocumentParams) 
 		&i.OriginalFilename,
 		&i.InputObjectKey,
 		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createDocumentPage = `-- name: CreateDocumentPage :one
+INSERT INTO document_pages (
+    document_id, page_number, image_object_key, status
+) VALUES (
+    $1, $2, $3, 'pending'
+) RETURNING id, document_id, page_number, image_object_key, extracted_json, status, error, created_at, updated_at
+`
+
+type CreateDocumentPageParams struct {
+	DocumentID     pgtype.UUID `json:"document_id"`
+	PageNumber     int32       `json:"page_number"`
+	ImageObjectKey string      `json:"image_object_key"`
+}
+
+type CreateDocumentPageRow struct {
+	ID             pgtype.UUID        `json:"id"`
+	DocumentID     pgtype.UUID        `json:"document_id"`
+	PageNumber     int32              `json:"page_number"`
+	ImageObjectKey string             `json:"image_object_key"`
+	ExtractedJson  []byte             `json:"extracted_json"`
+	Status         string             `json:"status"`
+	Error          pgtype.Text        `json:"error"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) CreateDocumentPage(ctx context.Context, arg CreateDocumentPageParams) (CreateDocumentPageRow, error) {
+	row := q.db.QueryRow(ctx, createDocumentPage, arg.DocumentID, arg.PageNumber, arg.ImageObjectKey)
+	var i CreateDocumentPageRow
+	err := row.Scan(
+		&i.ID,
+		&i.DocumentID,
+		&i.PageNumber,
+		&i.ImageObjectKey,
+		&i.ExtractedJson,
+		&i.Status,
+		&i.Error,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -101,6 +193,24 @@ func (q *Queries) EnqueueJob(ctx context.Context, arg EnqueueJobParams) (Enqueue
 	return i, err
 }
 
+const failJob = `-- name: FailJob :exec
+UPDATE jobs
+SET status = 'failed',
+    error = $2,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1
+`
+
+type FailJobParams struct {
+	ID    pgtype.UUID `json:"id"`
+	Error pgtype.Text `json:"error"`
+}
+
+func (q *Queries) FailJob(ctx context.Context, arg FailJobParams) error {
+	_, err := q.db.Exec(ctx, failJob, arg.ID, arg.Error)
+	return err
+}
+
 const getDocument = `-- name: GetDocument :one
 SELECT id, clerk_user_id, original_filename, input_object_key, output_object_key, page_count, status, created_at, updated_at 
 FROM documents 
@@ -127,6 +237,68 @@ func (q *Queries) GetDocument(ctx context.Context, arg GetDocumentParams) (Docum
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const getDocumentByID = `-- name: GetDocumentByID :one
+SELECT id, clerk_user_id, original_filename, input_object_key, output_object_key, page_count, status, created_at, updated_at 
+FROM documents 
+WHERE id = $1
+`
+
+func (q *Queries) GetDocumentByID(ctx context.Context, id pgtype.UUID) (Document, error) {
+	row := q.db.QueryRow(ctx, getDocumentByID, id)
+	var i Document
+	err := row.Scan(
+		&i.ID,
+		&i.ClerkUserID,
+		&i.OriginalFilename,
+		&i.InputObjectKey,
+		&i.OutputObjectKey,
+		&i.PageCount,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getPendingDocumentPages = `-- name: GetPendingDocumentPages :many
+SELECT id, document_id, page_number, image_object_key, extracted_json, ocr_result, embedded_text, status, error, created_at, updated_at
+FROM document_pages
+WHERE document_id = $1 AND status = 'pending'
+ORDER BY page_number ASC
+`
+
+func (q *Queries) GetPendingDocumentPages(ctx context.Context, documentID pgtype.UUID) ([]DocumentPage, error) {
+	rows, err := q.db.Query(ctx, getPendingDocumentPages, documentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DocumentPage
+	for rows.Next() {
+		var i DocumentPage
+		if err := rows.Scan(
+			&i.ID,
+			&i.DocumentID,
+			&i.PageNumber,
+			&i.ImageObjectKey,
+			&i.ExtractedJson,
+			&i.OcrResult,
+			&i.EmbeddedText,
+			&i.Status,
+			&i.Error,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listDocuments = `-- name: ListDocuments :many
@@ -164,4 +336,55 @@ func (q *Queries) ListDocuments(ctx context.Context, clerkUserID string) ([]Docu
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateDocumentPageStatus = `-- name: UpdateDocumentPageStatus :exec
+UPDATE document_pages
+SET status = $2,
+    extracted_json = COALESCE($3, extracted_json),
+    ocr_result = COALESCE($4, ocr_result),
+    embedded_text = COALESCE($5, embedded_text),
+    error = COALESCE($6, error),
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1
+`
+
+type UpdateDocumentPageStatusParams struct {
+	ID            pgtype.UUID `json:"id"`
+	Status        string      `json:"status"`
+	ExtractedJson []byte      `json:"extracted_json"`
+	OcrResult     []byte      `json:"ocr_result"`
+	EmbeddedText  pgtype.Text `json:"embedded_text"`
+	Error         pgtype.Text `json:"error"`
+}
+
+func (q *Queries) UpdateDocumentPageStatus(ctx context.Context, arg UpdateDocumentPageStatusParams) error {
+	_, err := q.db.Exec(ctx, updateDocumentPageStatus,
+		arg.ID,
+		arg.Status,
+		arg.ExtractedJson,
+		arg.OcrResult,
+		arg.EmbeddedText,
+		arg.Error,
+	)
+	return err
+}
+
+const updateDocumentStatus = `-- name: UpdateDocumentStatus :exec
+UPDATE documents
+SET status = $2,
+    page_count = COALESCE(NULLIF($3::integer, 0), page_count),
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1
+`
+
+type UpdateDocumentStatusParams struct {
+	ID      pgtype.UUID `json:"id"`
+	Status  string      `json:"status"`
+	Column3 int32       `json:"column_3"`
+}
+
+func (q *Queries) UpdateDocumentStatus(ctx context.Context, arg UpdateDocumentStatusParams) error {
+	_, err := q.db.Exec(ctx, updateDocumentStatus, arg.ID, arg.Status, arg.Column3)
+	return err
 }

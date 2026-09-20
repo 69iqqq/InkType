@@ -16,6 +16,8 @@ CREATE TABLE document_pages (
     page_number INTEGER NOT NULL,
     image_object_key TEXT NOT NULL,
     extracted_json JSONB,
+    ocr_result JSONB,
+    embedded_text TEXT,
     status VARCHAR(50) NOT NULL DEFAULT 'pending',
     error TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,

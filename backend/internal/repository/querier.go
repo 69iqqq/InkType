@@ -6,14 +6,24 @@ package repository
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
+	ClaimJob(ctx context.Context, dollar_1 int32) (Job, error)
+	CompleteJob(ctx context.Context, id pgtype.UUID) error
 	CreateDocument(ctx context.Context, arg CreateDocumentParams) (CreateDocumentRow, error)
+	CreateDocumentPage(ctx context.Context, arg CreateDocumentPageParams) (CreateDocumentPageRow, error)
 	DeleteDocument(ctx context.Context, arg DeleteDocumentParams) error
 	EnqueueJob(ctx context.Context, arg EnqueueJobParams) (EnqueueJobRow, error)
+	FailJob(ctx context.Context, arg FailJobParams) error
 	GetDocument(ctx context.Context, arg GetDocumentParams) (Document, error)
+	GetDocumentByID(ctx context.Context, id pgtype.UUID) (Document, error)
+	GetPendingDocumentPages(ctx context.Context, documentID pgtype.UUID) ([]DocumentPage, error)
 	ListDocuments(ctx context.Context, clerkUserID string) ([]Document, error)
+	UpdateDocumentPageStatus(ctx context.Context, arg UpdateDocumentPageStatusParams) error
+	UpdateDocumentStatus(ctx context.Context, arg UpdateDocumentStatusParams) error
 }
 
 var _ Querier = (*Queries)(nil)

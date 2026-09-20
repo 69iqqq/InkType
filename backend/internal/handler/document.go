@@ -148,3 +148,40 @@ func (h *DocumentHandler) Me(c echo.Context) error {
 		"user_id": userID,
 	})
 }
+
+func (h *DocumentHandler) Convert(c echo.Context) error {
+	userID, ok := c.Get(middleware.UserIDKey).(string)
+	if !ok || userID == "" {
+		return errs.NewUnauthorizedError("Unauthorized", false)
+	}
+
+	idParam := c.Param("id")
+	docID, err := uuid.Parse(idParam)
+	if err != nil {
+		return errs.NewBadRequestError("invalid document id", false, nil, nil, nil)
+	}
+
+	pgDocID := pgtype.UUID{Bytes: docID, Valid: true}
+
+	// Verify document exists and belongs to user
+	_, err = h.services.DocumentRepo.GetDocument(c.Request().Context(), repository.GetDocumentParams{
+		ID:          pgDocID,
+		ClerkUserID: userID,
+	})
+	if err != nil {
+		return errs.NewNotFoundError("document not found", false, nil)
+	}
+
+	// Enqueue job
+	job, err := h.services.DocumentRepo.EnqueueJob(c.Request().Context(), repository.EnqueueJobParams{
+		DocumentID: pgDocID,
+		Type:       "DOCUMENT_PROCESS",
+	})
+	if err != nil {
+		h.server.Logger.Error().Err(err).Msg("failed to enqueue job")
+		return errs.NewInternalServerError()
+	}
+
+	return c.JSON(http.StatusAccepted, job)
+}
+

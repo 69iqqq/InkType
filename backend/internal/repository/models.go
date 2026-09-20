@@ -26,6 +26,8 @@ type DocumentPage struct {
 	PageNumber     int32              `json:"page_number"`
 	ImageObjectKey string             `json:"image_object_key"`
 	ExtractedJson  []byte             `json:"extracted_json"`
+	OcrResult      []byte             `json:"ocr_result"`
+	EmbeddedText   pgtype.Text        `json:"embedded_text"`
 	Status         string             `json:"status"`
 	Error          pgtype.Text        `json:"error"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`

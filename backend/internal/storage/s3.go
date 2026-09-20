@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"time"
@@ -58,3 +59,15 @@ func (c *Client) GeneratePresignedUploadURL(ctx context.Context, objectKey strin
 	}
 	return req.URL, nil
 }
+
+func (c *Client) Upload(ctx context.Context, objectKey string, data []byte) error {
+	_, err := c.s3Client.PutObject(ctx, &s3.PutObjectInput{
+		Bucket: aws.String(c.bucketName),
+		Key:    aws.String(objectKey),
+		Body:   bytes.NewReader(data),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to upload object: %w", err)
+	}
+	return nil
+} 
