@@ -13,18 +13,22 @@ export const metadata: Metadata = {
   description: "Turn handwriting into clean, beautifully typeset PDFs.",
 };
 
+import { ClerkProvider } from "@clerk/nextjs";
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full">
-      <body
-        className={`${ibmPlexMono.className} antialiased h-full text-foreground bg-background`}
-      >
-        {children}
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en" className="h-full">
+        <body
+          className={`${ibmPlexMono.variable} ${ibmPlexMono.className} antialiased h-full text-foreground bg-background`}
+        >
+          {children}
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

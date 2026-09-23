@@ -6,13 +6,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
 	"inktype-backend/internal/config"
 	"inktype-backend/internal/database"
 	"inktype-backend/internal/handler"
 	"inktype-backend/internal/logger"
-	"inktype-backend/internal/repository"
 	"inktype-backend/internal/router"
 	"inktype-backend/internal/server"
 	"inktype-backend/internal/service"
@@ -32,10 +32,8 @@ func main() {
 
 	log := logger.NewLoggerWithService(cfg.Observability, loggerService)
 
-	if cfg.Primary.Env != "local" {
-		if err := database.Migrate(context.Background(), &log, cfg); err != nil {
-			log.Fatal().Err(err).Msg("failed to migrate database")
-		}
+	if err := database.Migrate(context.Background(), &log, cfg); err != nil {
+		log.Fatal().Err(err).Msg("failed to migrate database")
 	}
 
 	// Initialize server
@@ -44,9 +42,8 @@ func main() {
 		log.Fatal().Err(err).Msg("failed to initialize server")
 	}
 
-	// Initialize repositories, services, and handlers
-	repos := repository.NewRepositories(srv)
-	services, serviceErr := service.NewServices(srv, repos)
+	// Initialize services and handlers
+	services, serviceErr := service.NewServices(srv)
 	if serviceErr != nil {
 		log.Fatal().Err(serviceErr).Msg("could not create services")
 	}
@@ -58,7 +55,7 @@ func main() {
 	// Setup HTTP server
 	srv.SetupHTTPServer(r)
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 
 	// Start server
 	go func() {

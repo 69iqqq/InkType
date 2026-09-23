@@ -14,8 +14,18 @@ func RequestID() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			requestID := c.Request().Header.Get(RequestIDHeader)
-			if requestID == "" {
-				requestID = uuid.New().String() // 4c90fc3f-39cc-4b04-af21-c83ee64aa67e
+			isValid := false
+			if requestID != "" && len(requestID) <= 64 {
+				isValid = true
+				for _, char := range requestID {
+					if !(char >= 'a' && char <= 'z') && !(char >= 'A' && char <= 'Z') && !(char >= '0' && char <= '9') && char != '-' && char != '_' {
+						isValid = false
+						break
+					}
+				}
+			}
+			if !isValid {
+				requestID = uuid.New().String()
 			}
 
 			c.Set(RequestIDKey, requestID)

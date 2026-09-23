@@ -12,6 +12,7 @@ type PageAnalysisRequest struct {
 	ImageBytes     []byte
 	OCRResult      *ocr.OCRResult
 	EmbeddedText   string
+	PageNumber     int
 }
 
 type PageAnalysisResult struct {

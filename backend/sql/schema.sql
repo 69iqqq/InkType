@@ -6,6 +6,7 @@ CREATE TABLE documents (
     output_object_key TEXT,
     page_count INTEGER,
     status VARCHAR(50) NOT NULL DEFAULT 'uploaded',
+    error TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -28,6 +29,7 @@ CREATE TABLE document_pages (
 CREATE TABLE jobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     document_id UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+    document_page_id UUID REFERENCES document_pages(id) ON DELETE CASCADE,
     type VARCHAR(50) NOT NULL,
     status VARCHAR(50) NOT NULL DEFAULT 'pending',
     attempts INTEGER NOT NULL DEFAULT 0,
@@ -39,4 +41,22 @@ CREATE TABLE jobs (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_jobs_status_available ON jobs(status, available_at) WHERE status = 'pending';
+-- Indexes for performance
+CREATE INDEX idx_documents_user_created ON documents (clerk_user_id, created_at DESC);
+CREATE INDEX idx_document_pages_doc_id ON document_pages (document_id);
+CREATE INDEX idx_document_pages_pending ON document_pages (document_id, status) WHERE status = 'pending';
+CREATE INDEX idx_jobs_document_id ON jobs (document_id);
+CREATE INDEX idx_jobs_claimable ON jobs (status, available_at, created_at) WHERE status IN ('pending', 'processing');
+
+-- Auto-update updated_at timestamps
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_documents_updated_at BEFORE UPDATE ON documents FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_document_pages_updated_at BEFORE UPDATE ON document_pages FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_jobs_updated_at BEFORE UPDATE ON jobs FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

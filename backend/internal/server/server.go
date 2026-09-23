@@ -77,11 +77,12 @@ func New(cfg *config.Config, logger *zerolog.Logger, loggerService *loggerPkg.Lo
 
 func (s *Server) SetupHTTPServer(handler http.Handler) {
 	s.httpServer = &http.Server{
-		Addr:         ":" + s.Config.Server.Port,
-		Handler:      handler,
-		ReadTimeout:  time.Duration(s.Config.Server.ReadTimeout) * time.Second,
-		WriteTimeout: time.Duration(s.Config.Server.WriteTimeout) * time.Second,
-		IdleTimeout:  time.Duration(s.Config.Server.IdleTimeout) * time.Second,
+		Addr:              ":" + s.Config.Server.Port,
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       time.Duration(s.Config.Server.ReadTimeout) * time.Second,
+		WriteTimeout:      time.Duration(s.Config.Server.WriteTimeout) * time.Second,
+		IdleTimeout:       time.Duration(s.Config.Server.IdleTimeout) * time.Second,
 	}
 }
 
@@ -99,12 +100,22 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
-	if err := s.httpServer.Shutdown(ctx); err != nil {
-		return fmt.Errorf("failed to shutdown HTTP server: %w", err)
+	if s.httpServer != nil {
+		if err := s.httpServer.Shutdown(ctx); err != nil {
+			return fmt.Errorf("failed to shutdown HTTP server: %w", err)
+		}
 	}
 
-	if err := s.DB.Close(); err != nil {
-		return fmt.Errorf("failed to close database connection: %w", err)
+	if s.DB != nil {
+		if err := s.DB.Close(); err != nil {
+			return fmt.Errorf("failed to close database connection: %w", err)
+		}
+	}
+
+	if s.Redis != nil {
+		if err := s.Redis.Close(); err != nil {
+			return fmt.Errorf("failed to close redis connection: %w", err)
+		}
 	}
 
 	if s.Job != nil {

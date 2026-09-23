@@ -43,11 +43,19 @@ func (h *HealthHandler) CheckHealth(c echo.Context) error {
 	defer cancel()
 
 	dbStart := time.Now()
-	if err := h.server.DB.Pool.Ping(ctx); err != nil {
+	if h.server.DB == nil {
+		checks["database"] = map[string]interface{}{
+			"status":        "unhealthy",
+			"response_time": "0s",
+			"error":         "database not initialized",
+		}
+		isHealthy = false
+		logger.Error().Msg("database health check failed: uninitialized")
+	} else if err := h.server.DB.Pool.Ping(ctx); err != nil {
 		checks["database"] = map[string]interface{}{
 			"status":        "unhealthy",
 			"response_time": time.Since(dbStart).String(),
-			"error":         err.Error(),
+			"error":         "connection failed",
 		}
 		isHealthy = false
 		logger.Error().Err(err).Dur("response_time", time.Since(dbStart)).Msg("database health check failed")
@@ -81,8 +89,9 @@ func (h *HealthHandler) CheckHealth(c echo.Context) error {
 			checks["redis"] = map[string]interface{}{
 				"status":        "unhealthy",
 				"response_time": time.Since(redisStart).String(),
-				"error":         err.Error(),
+				"error":         "connection failed",
 			}
+			isHealthy = false
 			logger.Error().Err(err).Dur("response_time", time.Since(redisStart)).Msg("redis health check failed")
 			if h.server.LoggerService != nil && h.server.LoggerService.GetApplication() != nil {
 				h.server.LoggerService.GetApplication().RecordCustomEvent(

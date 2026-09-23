@@ -12,16 +12,21 @@ import (
 
 type Querier interface {
 	ClaimJob(ctx context.Context, dollar_1 int32) (Job, error)
+	CompleteDocument(ctx context.Context, arg CompleteDocumentParams) error
 	CompleteJob(ctx context.Context, id pgtype.UUID) error
-	CreateDocument(ctx context.Context, arg CreateDocumentParams) (CreateDocumentRow, error)
-	CreateDocumentPage(ctx context.Context, arg CreateDocumentPageParams) (CreateDocumentPageRow, error)
+	CountUnfinishedPages(ctx context.Context, documentID pgtype.UUID) (int32, error)
+	CreateDocument(ctx context.Context, arg CreateDocumentParams) (Document, error)
+	CreateDocumentPage(ctx context.Context, arg CreateDocumentPageParams) (DocumentPage, error)
 	DeleteDocument(ctx context.Context, arg DeleteDocumentParams) error
 	EnqueueJob(ctx context.Context, arg EnqueueJobParams) (EnqueueJobRow, error)
+	FailDocument(ctx context.Context, arg FailDocumentParams) error
 	FailJob(ctx context.Context, arg FailJobParams) error
 	GetDocument(ctx context.Context, arg GetDocumentParams) (Document, error)
 	GetDocumentByID(ctx context.Context, id pgtype.UUID) (Document, error)
+	GetDocumentPage(ctx context.Context, id pgtype.UUID) (DocumentPage, error)
+	GetDocumentPages(ctx context.Context, documentID pgtype.UUID) ([]DocumentPage, error)
 	GetPendingDocumentPages(ctx context.Context, documentID pgtype.UUID) ([]DocumentPage, error)
-	ListDocuments(ctx context.Context, clerkUserID string) ([]Document, error)
+	ListDocuments(ctx context.Context, arg ListDocumentsParams) ([]Document, error)
 	UpdateDocumentPageStatus(ctx context.Context, arg UpdateDocumentPageStatusParams) error
 	UpdateDocumentStatus(ctx context.Context, arg UpdateDocumentStatusParams) error
 }

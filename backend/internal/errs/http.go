@@ -37,9 +37,11 @@ func (e *HTTPError) Error() string {
 }
 
 func (e *HTTPError) Is(target error) bool {
-	_, ok := target.(*HTTPError)
-
-	return ok
+	targetErr, ok := target.(*HTTPError)
+	if !ok {
+		return false
+	}
+	return e.Status == targetErr.Status && e.Code == targetErr.Code
 }
 
 func (e *HTTPError) WithMessage(message string) *HTTPError {

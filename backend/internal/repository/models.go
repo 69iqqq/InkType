@@ -16,6 +16,7 @@ type Document struct {
 	OutputObjectKey  pgtype.Text        `json:"output_object_key"`
 	PageCount        pgtype.Int4        `json:"page_count"`
 	Status           string             `json:"status"`
+	Error            pgtype.Text        `json:"error"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
@@ -35,15 +36,16 @@ type DocumentPage struct {
 }
 
 type Job struct {
-	ID          pgtype.UUID        `json:"id"`
-	DocumentID  pgtype.UUID        `json:"document_id"`
-	Type        string             `json:"type"`
-	Status      string             `json:"status"`
-	Attempts    int32              `json:"attempts"`
-	AvailableAt pgtype.Timestamptz `json:"available_at"`
-	StartedAt   pgtype.Timestamptz `json:"started_at"`
-	CompletedAt pgtype.Timestamptz `json:"completed_at"`
-	Error       pgtype.Text        `json:"error"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	ID             pgtype.UUID        `json:"id"`
+	DocumentID     pgtype.UUID        `json:"document_id"`
+	DocumentPageID pgtype.UUID        `json:"document_page_id"`
+	Type           string             `json:"type"`
+	Status         string             `json:"status"`
+	Attempts       int32              `json:"attempts"`
+	AvailableAt    pgtype.Timestamptz `json:"available_at"`
+	StartedAt      pgtype.Timestamptz `json:"started_at"`
+	CompletedAt    pgtype.Timestamptz `json:"completed_at"`
+	Error          pgtype.Text        `json:"error"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }

@@ -59,10 +59,10 @@ type AuthConfig struct {
 }
 
 type StorageConfig struct {
-	R2AccountID       string `koanf:"r2_account_id"`
-	R2AccessKeyID     string `koanf:"r2_access_key_id"`
-	R2SecretAccessKey string `koanf:"r2_secret_access_key"`
-	R2BucketName      string `koanf:"r2_bucket_name"`
+	R2AccountID       string `koanf:"r2_account_id" validate:"required"`
+	R2AccessKeyID     string `koanf:"r2_access_key_id" validate:"required"`
+	R2SecretAccessKey string `koanf:"r2_secret_access_key" validate:"required"`
+	R2BucketName      string `koanf:"r2_bucket_name" validate:"required"`
 }
 
 func LoadConfig() (*Config, error) {
@@ -70,8 +70,10 @@ func LoadConfig() (*Config, error) {
 
 	k := koanf.New(".")
 
-	err := k.Load(env.Provider("BOILERPLATE_", ".", func(s string) string {
-		return strings.ToLower(strings.TrimPrefix(s, "BOILERPLATE_"))
+	err := k.Load(env.Provider("INKTYPE_", ".", func(s string) string {
+		s = strings.TrimPrefix(s, "INKTYPE_")
+		s = strings.ToLower(s)
+		return strings.ReplaceAll(s, "__", ".")
 	}), nil)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("could not load initial env variables")
@@ -97,7 +99,6 @@ func LoadConfig() (*Config, error) {
 	}
 
 	// Override service name and environment from primary config
-	mainConfig.Observability.ServiceName = "boilerplate"
 	mainConfig.Observability.Environment = mainConfig.Primary.Env
 
 	// Validate observability config

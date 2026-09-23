@@ -28,7 +28,14 @@ func (c CustomValidationErrors) Error() string {
 
 func BindAndValidate(c echo.Context, payload Validatable) error {
 	if err := c.Bind(payload); err != nil {
-		message := strings.Split(strings.Split(err.Error(), ",")[1], "message=")[1]
+		message := err.Error()
+		parts := strings.Split(message, ",")
+		if len(parts) > 1 {
+			msgParts := strings.Split(parts[1], "message=")
+			if len(msgParts) > 1 {
+				message = msgParts[1]
+			}
+		}
 		return errs.NewBadRequestError(message, false, nil, nil, nil)
 	}
 
@@ -50,12 +57,13 @@ func extractValidationErrors(err error) (string, []errs.FieldError) {
 	var fieldErrors []errs.FieldError
 	validationErrors, ok := err.(validator.ValidationErrors)
 	if !ok {
-		customValidationErrors := err.(CustomValidationErrors)
-		for _, err := range customValidationErrors {
-			fieldErrors = append(fieldErrors, errs.FieldError{
-				Field: err.Field,
-				Error: err.Message,
-			})
+		if customValidationErrors, ok := err.(CustomValidationErrors); ok {
+			for _, err := range customValidationErrors {
+				fieldErrors = append(fieldErrors, errs.FieldError{
+					Field: err.Field,
+					Error: err.Message,
+				})
+			}
 		}
 	}
 

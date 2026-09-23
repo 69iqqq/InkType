@@ -17,14 +17,11 @@ type Services struct {
 	Storage      *storage.Client
 }
 
-func NewServices(s *server.Server, repos *repository.Repositories) (*Services, error) {
+func NewServices(s *server.Server) (*Services, error) {
 	authService := NewAuthService(s)
 
 	// Initialize repository
-	var repo repository.Querier
-	if s.DB != nil {
-		repo = repository.New(s.DB.Pool)
-	}
+	repo := repository.New(s.DB.Pool)
 
 	// Initialize storage
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -41,7 +38,7 @@ func NewServices(s *server.Server, repos *repository.Repositories) (*Services, e
 			s.Config.Storage.R2BucketName,
 		)
 		if err != nil {
-			s.Logger.Warn().Err(err).Msg("failed to initialize R2 storage client")
+			return nil, err
 		}
 	}
 

@@ -6,8 +6,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"inktype-backend/internal/config"
 	"inktype-backend/internal/ai"
+	"inktype-backend/internal/config"
 	"inktype-backend/internal/logger"
 	"inktype-backend/internal/ocr"
 	"inktype-backend/internal/pdf"
@@ -49,8 +49,11 @@ func main() {
 		log.Fatal().Err(err).Msg("Failed to initialize storage client")
 	}
 
-	pdfRender := pdf.NewSystemRenderer()
-	visionProvider := ai.NewStubVisionProvider()
+	pdfRender := pdf.NewSystemRenderer(store)
+	visionProvider, err := ai.NewGenAIVisionProvider(ctx)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to initialize GenAI Vision Provider")
+	}
 	ocrProvider := ocr.NewStubOCRProvider()
 
 	w := worker.NewWorker(cfg, srv.DB.Pool, repo, store, pdfRender, visionProvider, ocrProvider, log)
@@ -67,5 +70,14 @@ func main() {
 	log.Info().Msg("Shutting down worker...")
 	cancel() // Cancel the context to stop workers gracefully
 	w.Stop()
+
+	// Shutdown resources
+	if srv.DB != nil {
+		srv.DB.Close()
+	}
+	if srv.Redis != nil {
+		srv.Redis.Close()
+	}
+
 	log.Info().Msg("Worker stopped")
 }

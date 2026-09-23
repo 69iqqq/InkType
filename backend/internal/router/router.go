@@ -3,12 +3,13 @@ package router
 import (
 	"net/http"
 
-	"github.com/labstack/echo/v4"
-	echoMiddleware "github.com/labstack/echo/v4/middleware"
 	"inktype-backend/internal/handler"
 	"inktype-backend/internal/middleware"
 	"inktype-backend/internal/server"
 	"inktype-backend/internal/service"
+
+	"github.com/labstack/echo/v4"
+	echoMiddleware "github.com/labstack/echo/v4/middleware"
 	"golang.org/x/time/rate"
 )
 
@@ -55,14 +56,30 @@ func NewRouter(s *server.Server, h *handler.Handlers, services *service.Services
 
 	// register versioned routes
 	v1 := router.Group("/api/v1")
-	
+
+	// public routes
+	v1.PUT("/local-upload", h.Document.LocalUpload)
+
 	// auth required routes
+	v1.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			if c.Request().Header.Get("Authorization") == "" {
+				token := c.QueryParam("token")
+				if token != "" {
+					c.Request().Header.Set("Authorization", "Bearer "+token)
+				}
+			}
+			return next(c)
+		}
+	})
 	v1.Use(middlewares.Auth.RequireAuth)
 	{
 		v1.GET("/me", h.Document.Me)
 		v1.POST("/documents", h.Document.Create)
 		v1.GET("/documents", h.Document.List)
 		v1.GET("/documents/:id", h.Document.Get)
+		v1.GET("/documents/:id/download", h.Document.Download)
+		v1.GET("/documents/:id/ws", h.Document.WS)
 		v1.DELETE("/documents/:id", h.Document.Delete)
 		v1.POST("/documents/:id/convert", h.Document.Convert)
 	}

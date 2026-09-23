@@ -7,11 +7,12 @@ import (
 	"os"
 	"time"
 
+	"inktype-backend/internal/config"
+
 	"github.com/newrelic/go-agent/v3/integrations/logcontext-v2/zerologWriter"
 	"github.com/newrelic/go-agent/v3/newrelic"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/pkgerrors"
-	"inktype-backend/internal/config"
 )
 
 // LoggerService manages New Relic integration and logger creation
@@ -42,6 +43,7 @@ func NewLoggerService(cfg *config.ObservabilityConfig) *LoggerService {
 
 	app, err := newrelic.NewApplication(configOptions...)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to initialize new relic: %v\n", err)
 		return service
 	}
 
@@ -60,7 +62,6 @@ func (ls *LoggerService) Shutdown() {
 func (ls *LoggerService) GetApplication() *newrelic.Application {
 	return ls.nrApp
 }
-
 
 // NewLoggerWithService creates a logger with full config and logger service
 func NewLoggerWithService(cfg *config.ObservabilityConfig, loggerService *LoggerService) zerolog.Logger {
@@ -81,7 +82,7 @@ func NewLoggerWithService(cfg *config.ObservabilityConfig, loggerService *Logger
 	}
 
 	// Don't set global level - let each logger have its own level
-	zerolog.TimeFieldFormat = "2006-01-02 15:04:05"
+	zerolog.TimeFieldFormat = time.RFC3339Nano
 	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
 
 	var writer io.Writer
@@ -101,11 +102,9 @@ func NewLoggerWithService(cfg *config.ObservabilityConfig, loggerService *Logger
 		}
 	} else {
 		// Development mode - use console writer
-		consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: "2006-01-02 15:04:05"}
+		consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339Nano}
 		writer = consoleWriter
 	}
-
-	// Note: New Relic log forwarding is now handled automatically by zerologWriter integration
 
 	logger := zerolog.New(writer).
 		Level(logLevel).
@@ -115,10 +114,8 @@ func NewLoggerWithService(cfg *config.ObservabilityConfig, loggerService *Logger
 		Str("environment", cfg.Environment).
 		Logger()
 
-	// Include stack traces for errors in development
-	if !cfg.IsProduction() {
-		logger = logger.With().Stack().Logger()
-	}
+	// Include stack traces for errors
+	logger = logger.With().Stack().Logger()
 
 	return logger
 }
@@ -139,30 +136,36 @@ func WithTraceContext(logger zerolog.Logger, txn *newrelic.Transaction) zerolog.
 }
 
 // NewPgxLogger creates a database logger
-func NewPgxLogger(level zerolog.Level) zerolog.Logger {
-	writer := zerolog.ConsoleWriter{
-		Out:        os.Stdout,
-		TimeFormat: "2006-01-02 15:04:05",
-		FormatFieldValue: func(i any) string {
-			switch v := i.(type) {
-			case string:
-				// Clean and format SQL for better readability
-				if len(v) > 200 {
-					// Truncate very long SQL statements
-					return v[:200] + "..."
+func NewPgxLogger(level zerolog.Level, isProduction bool) zerolog.Logger {
+	var writer io.Writer
+
+	if isProduction {
+		writer = os.Stdout
+	} else {
+		writer = zerolog.ConsoleWriter{
+			Out:        os.Stdout,
+			TimeFormat: time.RFC3339Nano,
+			FormatFieldValue: func(i any) string {
+				switch v := i.(type) {
+				case string:
+					// Clean and format SQL for better readability
+					if len(v) > 200 {
+						// Truncate very long SQL statements
+						return v[:200] + "..."
+					}
+					return v
+				case []byte:
+					var obj interface{}
+					if err := json.Unmarshal(v, &obj); err == nil {
+						pretty, _ := json.MarshalIndent(obj, "", "    ")
+						return "\n" + string(pretty)
+					}
+					return string(v)
+				default:
+					return fmt.Sprintf("%v", v)
 				}
-				return v
-			case []byte:
-				var obj interface{}
-				if err := json.Unmarshal(v, &obj); err == nil {
-					pretty, _ := json.MarshalIndent(obj, "", "    ")
-					return "\n" + string(pretty)
-				}
-				return string(v)
-			default:
-				return fmt.Sprintf("%v", v)
-			}
-		},
+			},
+		}
 	}
 
 	return zerolog.New(writer).

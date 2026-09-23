@@ -1,10 +1,27 @@
 export async function getAuthToken(): Promise<string> {
-  return "placeholder-jwt-token";
+  if (typeof window === "undefined") return "";
+
+  // 1. If Clerk session is already active, return token immediately
+  if (window.Clerk?.session) {
+    const token = await window.Clerk.session.getToken();
+    if (token) return token;
+  }
+
+  // 2. If Clerk is still hydrating on page refresh, wait up to 3 seconds
+  for (let i = 0; i < 30; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    if (window.Clerk?.session) {
+      const token = await window.Clerk.session.getToken();
+      if (token) return token;
+    }
+  }
+
+  return "";
 }
 
 export async function uploadDocument(file: File): Promise<Record<string, unknown>> {
   const token = await getAuthToken();
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/v1";
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
 
   const res = await fetch(`${apiBase}/documents`, {
     method: "POST",
@@ -34,5 +51,31 @@ export async function uploadDocument(file: File): Promise<Record<string, unknown
     throw new Error(`Failed to upload to S3: ${uploadRes.statusText}`);
   }
 
+  // Trigger document conversion pipeline
+  const convertRes = await fetch(`${apiBase}/documents/${document.id}/convert`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${token}`
+    }
+  });
+
+  if (!convertRes.ok) {
+    throw new Error(`Failed to trigger conversion: ${convertRes.statusText}`);
+  }
+
   return document as Record<string, unknown>;
+}
+
+export async function deleteDocument(id: string): Promise<boolean> {
+  const token = await getAuthToken();
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
+
+  const res = await fetch(`${apiBase}/documents/${id}`, {
+    method: "DELETE",
+    headers: {
+      "Authorization": `Bearer ${token}`
+    }
+  });
+
+  return res.ok;
 }

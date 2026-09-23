@@ -24,7 +24,9 @@ func NewGlobalMiddlewares(s *server.Server) *GlobalMiddlewares {
 
 func (global *GlobalMiddlewares) CORS() echo.MiddlewareFunc {
 	return middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: global.server.Config.Server.CORSAllowedOrigins,
+		AllowOrigins:     global.server.Config.Server.CORSAllowedOrigins,
+		AllowHeaders:     []string{"Authorization", "Content-Type", "X-Request-ID"},
+		AllowCredentials: true,
 	})
 }
 
@@ -155,11 +157,19 @@ func (global *GlobalMiddlewares) GlobalErrorHandler(err error, c echo.Context) {
 	// Use enhanced logger from context which already includes request_id, method, path, ip, user context, and trace context
 	logger := *GetLogger(c)
 
-	logger.Error().Stack().
-		Err(originalErr).
-		Int("status", status).
-		Str("error_code", code).
-		Msg(message)
+	if status >= 500 {
+		logger.Error().Stack().
+			Err(originalErr).
+			Int("status", status).
+			Str("error_code", code).
+			Msg(message)
+	} else {
+		logger.Warn().
+			Err(originalErr).
+			Int("status", status).
+			Str("error_code", code).
+			Msg(message)
+	}
 
 	if !c.Response().Committed {
 		_ = c.JSON(status, errs.HTTPError{

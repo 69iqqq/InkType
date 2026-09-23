@@ -8,14 +8,15 @@ import (
 	"strconv"
 	"time"
 
+	"inktype-backend/internal/config"
+	loggerConfig "inktype-backend/internal/logger"
+
 	pgxzero "github.com/jackc/pgx-zerolog"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/tracelog"
 	"github.com/newrelic/go-agent/v3/integrations/nrpgx5"
 	"github.com/rs/zerolog"
-	"inktype-backend/internal/config"
-	loggerConfig "inktype-backend/internal/logger"
 )
 
 type Database struct {
@@ -71,6 +72,14 @@ func New(cfg *config.Config, logger *zerolog.Logger, loggerService *loggerConfig
 		return nil, fmt.Errorf("failed to parse pgx pool config: %w", err)
 	}
 
+	pgxPoolConfig.MaxConns = int32(cfg.Database.MaxOpenConns)
+	pgxPoolConfig.MinConns = int32(cfg.Database.MaxIdleConns)
+	pgxPoolConfig.MaxConnLifetime = time.Duration(cfg.Database.ConnMaxLifetime) * time.Second
+	pgxPoolConfig.MaxConnIdleTime = time.Duration(cfg.Database.ConnMaxIdleTime) * time.Second
+
+	// FIX: Disable prepared statements for Neon's PgBouncer pooled connections
+	pgxPoolConfig.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeExec
+
 	// Add New Relic PostgreSQL instrumentation
 	if loggerService != nil && loggerService.GetApplication() != nil {
 		pgxPoolConfig.ConnConfig.Tracer = nrpgx5.NewTracer()
@@ -78,7 +87,7 @@ func New(cfg *config.Config, logger *zerolog.Logger, loggerService *loggerConfig
 
 	if cfg.Primary.Env == "local" {
 		globalLevel := logger.GetLevel()
-		pgxLogger := loggerConfig.NewPgxLogger(globalLevel)
+		pgxLogger := loggerConfig.NewPgxLogger(globalLevel, false)
 		// Chain tracers - New Relic first, then local logging
 		if pgxPoolConfig.ConnConfig.Tracer != nil {
 			// If New Relic tracer exists, create a multi-tracer
